@@ -1,0 +1,74 @@
+---
+- name: 'Merge configuration'
+  ansible.builtin.set_fact:
+    knot_config: "{% set zone_section = [] -%}
+      {# Add default zone: entries for all zones that do not have an entry in knot_config. -#}
+      {% set configured_zones = knot_config['zone'] | default([]) | map(attribute='domain') | select('defined') | map('ansible.builtin.regex_replace', '\\.$', '') -%}
+      {% for zone in knot_zones.keys() if zone.rstrip('.') not in configured_zones -%}
+        {% set _ = zone_section.append({'domain': zone} | ansible.builtin.combine(knot_config_zone_defaults)) -%}
+      {% endfor -%}
+      {% set _ = knot_config.update({'zone': zone_section + knot_config['zone'] | default([])}) -%}
+      {# Ensure that the 'ansible' template uses all the required settings. -#}
+      {% set ansible_template = knot_config['template'] | default([]) | selectattr('id', '==', 'ansible') | first | default({}) -%}
+      {% set template_section = knot_config['template'] | default([]) | ansible.builtin.difference([ansible_template]) -%}
+      {% set template_section = [ansible_template | ansible.builtin.combine(knot_config_template_ansible)] + template_section -%}
+      {% set _ = knot_config.update({'template': template_section}) -%}
+      {{ knot_config_defaults | ansible.builtin.combine(knot_config, recursive=true) }}"
+
+- name: 'Install Knot DNS'
+  community.general.opkg:
+    name: knot
+    state: present
+
+- name: 'Create required directories'
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner | default('root') }}"
+    group: 'knot'
+    mode: '0750'
+  loop:
+    - path: "{{ knot_config['database']['storage'] }}"
+      owner: knot
+    - path: "{{ knot_zones_dir }}"
+  loop_control:
+    label: "{{ item.path }}"
+
+- name: 'Configure Knot DNS'
+  ansible.builtin.template:
+    dest: '/etc/knot/knot.conf'
+    src: 'knot.conf.j2'
+    owner: root
+    group: knot
+    mode: '0640'
+    validate: 'knotc -c %s conf-check'
+  notify: _knot_restart
+
+- name: 'Configure zones'
+  ansible.builtin.template:
+    dest: "{{ knot_zones_dir }}/{{ zone['name'].rstrip('.') }}.zone"
+    src: 'zone.j2'
+    owner: root
+    group: knot
+    mode: '0640'
+  notify: _knot_reload_zones
+  register: _knot_zones
+  loop: "{{ knot_zones | ansible.builtin.dict2items(key_name='name', value_name='settings') }}"
+  loop_control:
+    loop_var: zone
+    label: "{{ zone['name'].rstrip('.') }}"
+
+- name: 'Keep configuration files on system upgrades'
+  ansible.builtin.lineinfile:
+    path: '/etc/sysupgrade.conf'
+    line: "{{ item }}"
+    state: present
+  loop:
+    - "{{ knot_config['database']['storage'] }}"
+    - "{{ knot_zones_dir }}"
+
+- name: 'Enable and start Knot DNS'
+  ansible.builtin.service:
+    name: knotd
+    enabled: true
+    state: "{{ ansible_facts['is_chroot'] | ansible.builtin.ternary(omit, 'started') }}"

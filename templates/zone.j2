@@ -1,0 +1,25 @@
+#jinja2: lstrip_blocks: True
+{# vim: filetype=bindzone.jinja2 #}
+{{ ansible_managed | ansible.builtin.comment(decoration=';') }}
+
+$ORIGIN {{ zone['name'].rstrip('.') }}.
+{% if zone['settings']['ttl'] is defined %}
+$TTL {{ zone['settings']['ttl'] }}
+{% endif %}
+{% for entry in zone['settings']['records'] %}
+  {% if entry is string %}
+{{ entry }}
+  {% else %}
+    {% set type = entry.type %}
+    {% if entry.type is not defined %}
+      {% if [entry.data] | ansible.builtin.flatten | first | ansible.utils.ipaddr('version') == 4 %}
+        {% set type = 'A' %}
+      {% elif [entry.data] | ansible.builtin.flatten | first | ansible.utils.ipaddr('version') == 6 %}
+        {% set type = 'AAAA' %}
+      {% endif %}
+    {% endif %}
+    {% for record in [entry.data] | ansible.builtin.flatten %}
+{{ entry.name.rstrip('.') }}{% if entry.name.endswith(zone['name'].rstrip('.')) %}.{% endif %} {{ entry.ttl | default() }} {{ entry.class | default('IN') }} {{ type }} {{ record }}
+    {% endfor %}
+  {% endif %}
+{% endfor %}

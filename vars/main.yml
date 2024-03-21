@@ -1,0 +1,24 @@
+---
+knot_data_dir: '/etc/knot/data/'  # because /var/lib/knot is not persistent on OpenWrt
+knot_config_defaults:
+  server:
+    rundir: '/var/run/knot'
+    user: 'knot:knot'
+    automatic-acl: true
+    identity: ''
+    version: ''
+    tcp-reuseport: true
+  log:
+    - target: syslog
+      any: info
+  database:
+    storage: "{{ knot_data_dir }}"
+knot_config_template_ansible:
+  id: ansible
+  storage: "{{ knot_zones_dir }}"
+  file: '%s.zone'
+  zonefile-sync: -1
+  zonefile-load: difference-no-serial
+  journal-content: all
+knot_config_zone_defaults:
+  template: ansible

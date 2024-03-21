@@ -1,0 +1,38 @@
+#jinja2: lstrip_blocks: True
+{# vim: filetype=yaml.jinja2 #}
+{# Note: Knot uses a weird similar-to-but-not-quite YAML syntax.
+  Dictionaries must be in non-compact form, while lists must be in compact
+  form, except when they are direct children of top-level keys. Also, strings
+  must be double-quoted if they contain spaces or "other special characters".
+  Furthermore, the order of configuration sections matters and is difficult to
+  get right when combining multiple data structures within Ansible.
+  Neither to_yaml nor to_nice_yaml produce correct results. Hence, we implement
+  our own formatter. #}
+{% macro print_value(value) %}
+{% if value is string %}
+"{{ value }}"{# #}
+{% elif value is boolean %}
+{{ value | ansible.builtin.ternary('on', 'off') }}{# #}
+{% elif value is sequence %}
+[ {% for v in value %}{{ print_value(v) }}{% if not loop.last %}, {% endif %}{% endfor %} ]{# #}
+{% else %}
+{{ value }}{# #}
+{% endif %}
+{% endmacro %}
+{% macro print_dict(data) %}
+{% for key, value in data.items() %}
+{{ key }}: {{ print_value(value) }}
+{% endfor %}
+{% endmacro %}
+{{ ansible_managed | ansible.builtin.comment }}
+{% for section in ['module', 'server', 'xdp', 'control', 'log', 'statistics', 'database', 'keystore', 'key', 'remote', 'remotes', 'acl', 'submission', 'dnskey-sync', 'policy'] + knot_config.keys() | select('ansible.builtin.match', 'mod-') + ['template', 'zone'] if section in knot_config.keys() %}
+
+{{ section }}:
+{% if knot_config[section] is mapping %}
+    {{ print_dict(knot_config[section]) | indent(4) }}{# #}
+{% else %}
+{% for entry in knot_config[section] %}
+    - {{ print_dict(entry) | indent(6) }}{# #}
+{% endfor %}
+{% endif %}
+{% endfor %}

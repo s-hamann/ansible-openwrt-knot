@@ -1,0 +1,4 @@
+---
+knot_config: {}
+knot_zones: {}
+knot_zones_dir: '/etc/knot/zones/'

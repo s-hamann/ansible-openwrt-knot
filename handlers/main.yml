@@ -1,0 +1,15 @@
+---
+- name: 'Restart Knot DNS'
+  ansible.builtin.service:
+    name: knotd
+    state: "{{ ansible_facts['is_chroot'] | ansible.builtin.ternary(omit, 'restarted') }}"
+  listen: _knot_restart
+
+- name: 'Reload Knot DNS zones'
+  ansible.builtin.command: 'knotc zone-reload {{ zone | quote }}'
+  changed_when: true
+  when: "not ansible_facts['is_chroot']"
+  loop: "{{ _knot_zones['results'] | selectattr('changed') | map(attribute='zone') | map(attribute='name') }}"
+  loop_control:
+    loop_var: zone
+  listen: _knot_reload_zones
