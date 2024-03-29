@@ -34,6 +34,20 @@
   loop_control:
     label: "{{ item.path }}"
 
+- name: 'Configure GeoIP module'
+  ansible.builtin.template:
+    dest: "{{ knot_zones_dir }}/{{ geoip['id'] }}.geoip"
+    src: 'geoip.j2'
+    owner: root
+    group: knot
+    mode: '0640'
+  notify: _knot_restart
+  loop: "{{ knot_config['mod-geoip'] | default([]) }}"
+  loop_control:
+    loop_var: geoip
+    label: "{{ geoip['id'] }}"
+  when: "geoip['config-file'] is mapping"
+
 - name: 'Configure Knot DNS'
   ansible.builtin.template:
     dest: '/etc/knot/knot.conf'

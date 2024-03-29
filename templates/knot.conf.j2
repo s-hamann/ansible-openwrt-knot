@@ -32,6 +32,9 @@
     {{ print_dict(knot_config[section]) | indent(4) }}{# #}
 {% else %}
 {% for entry in knot_config[section] %}
+{% if section == 'mod-geoip' and entry['config-file'] is mapping %}
+{% set _ = entry.update({'config-file': knot_zones_dir.rstrip('/') ~ '/' ~ entry['id'] ~ '.geoip'}) %}
+{% endif %}
     - {{ print_dict(entry) | indent(6) }}{# #}
 {% endfor %}
 {% endif %}

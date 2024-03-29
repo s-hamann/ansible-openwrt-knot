@@ -1,0 +1,14 @@
+#jinja2: lstrip_blocks: True
+{# vim: filetype=yaml.jinja2 #}
+{% macro print_dict(data) %}
+{% for key, value in data.items() %}
+{{ key }}: "{{ value | replace(' ', '\ ') | replace('"', '\"') }}"
+{% endfor %}
+{% endmacro %}
+{{ ansible_managed | ansible.builtin.comment }}
+{% for domain, data in geoip['config-file'].items() %}
+{{ domain }}:
+{% for entry in data %}
+  - {{ print_dict(entry) | indent(4) }}{# #}
+{% endfor %}
+{% endfor %}

@@ -23,6 +23,10 @@ Role Variables
   Without these options, this role can not reliably handle zone data updates.
   Furthermore, it is possible to modify the `ansible` template, simply by adding an entry with the id `ansible` to the `template` section.
   This role automatically ensures that this template contains all required options, so it is not necessary to set them manually.
+  A note on the GeoIP module:
+  This module requires an additional configuration file, which is referenced in the `config-file` key.
+  This role allows setting `config-file` to the desired file content instead of a path.
+  This content will then be written to a file and its path referenced in the main knot configuration.
   Optional.
 * `knot_zones`  
   A dictionary containing the zone contents that Knot DNS should server.
