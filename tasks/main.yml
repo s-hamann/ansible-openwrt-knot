@@ -16,12 +16,19 @@
       {{ knot_config_defaults | ansible.builtin.combine(knot_config, recursive=true) }}"
 
 - name: 'Install Knot DNS'
-  community.general.opkg:
+  community.openwrt.apk:
     name: knot
     state: present
+  when: "ansible_facts['pkg_mgr'] == 'apk'"
+
+- name: 'Install Knot DNS'
+  community.openwrt.opkg:
+    name: knot
+    state: present
+  when: "ansible_facts['pkg_mgr'] == 'opkg'"
 
 - name: 'Create required directories'
-  ansible.builtin.file:
+  community.openwrt.file:
     path: "{{ item.path }}"
     state: directory
     owner: "{{ item.owner | default('root') }}"
@@ -35,7 +42,7 @@
     label: "{{ item.path }}"
 
 - name: 'Configure GeoIP module'
-  ansible.builtin.template:
+  community.openwrt.template:
     dest: "{{ knot_zones_dir }}/{{ geoip['id'] }}.geoip"
     src: 'geoip.j2'
     owner: root
@@ -49,7 +56,7 @@
   when: "geoip['config-file'] is mapping"
 
 - name: 'Configure Knot DNS'
-  ansible.builtin.template:
+  community.openwrt.template:
     dest: '/etc/knot/knot.conf'
     src: 'knot.conf.j2'
     owner: root
@@ -59,7 +66,7 @@
   notify: _knot_restart
 
 - name: 'Configure zones'
-  ansible.builtin.template:
+  community.openwrt.template:
     dest: "{{ knot_zones_dir }}/{{ zone['name'].rstrip('.') }}.zone"
     src: 'zone.j2'
     owner: root
@@ -73,7 +80,7 @@
     label: "{{ zone['name'].rstrip('.') }}"
 
 - name: 'Keep configuration files on system upgrades'
-  ansible.builtin.lineinfile:
+  community.openwrt.lineinfile:
     path: '/etc/sysupgrade.conf'
     line: "{{ item }}"
     state: present
@@ -82,7 +89,7 @@
     - "{{ knot_zones_dir }}"
 
 - name: 'Enable and start Knot DNS'
-  ansible.builtin.service:
+  community.openwrt.service:
     name: knotd
     enabled: true
     state: "{{ ansible_facts['is_chroot'] | ansible.builtin.ternary(omit, 'started') }}"
